@@ -18,7 +18,7 @@ async function verifySyncRepo(){
   if(!repo.permissions?.push)throw new Error('当前授权没有写入此仓库的权限。');
 }
 async function runSync(){
-  if(!syncAuth||!syncReady)return;
+  if(!Profiles.canSync||!syncAuth||!syncReady)return;
   if(syncBusy){syncAgain=true;return;}
   syncBusy=true;$('#sync-now').disabled=true;$('#sync-connect').disabled=true;$('#sync-disconnect').disabled=true;
   clearTimeout(syncTimer);syncStatus('正在合并两端的学习记录…');
@@ -53,8 +53,9 @@ async function runSync(){
   finally{syncBusy=false;$('#sync-now').disabled=!syncAuth;$('#sync-connect').disabled=false;$('#sync-disconnect').disabled=!syncAuth;if(syncAgain){syncAgain=false;scheduleSync();}}
 }
 function scheduleSync(){if(!syncAuth||!syncReady||!$('#sync-auto').checked)return;clearTimeout(syncTimer);syncTimer=setTimeout(runSync,20000);}
-function persistSyncConfig(){try{localStorage.setItem(SYNC_CONFIG,JSON.stringify({repo:$('#sync-repo').value.trim(),auto:$('#sync-auto').checked}));}catch{}}
+function persistSyncConfig(){if(!Profiles.canSync)return;try{localStorage.setItem(SYNC_CONFIG,JSON.stringify({repo:$('#sync-repo').value.trim(),auto:$('#sync-auto').checked}));}catch{}}
 $('#sync-connect').onclick=async()=>{
+  if(!Profiles.canSync)return;
   const repo=$('#sync-repo').value.trim(),token=$('#sync-token').value.trim();
   if(!/^[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(repo)){syncStatus('请填写“用户名/私有仓库名”。');return;}
   if(!token.startsWith('github_pat_')||token.length<30){syncStatus('请使用仅授权进度仓库的 Fine-grained token，不要填写 GitHub 密码。');return;}
@@ -64,10 +65,10 @@ $('#sync-connect').onclick=async()=>{
   persistSyncConfig();await runSync();
 };
 $('#sync-now').onclick=runSync;
-$('#sync-disconnect').onclick=()=>{clearTimeout(syncTimer);syncAuth=null;try{localStorage.removeItem(SYNC_SECRET);sessionStorage.removeItem(SYNC_SECRET);}catch{}$('#sync-token').value='';$('#sync-now').disabled=true;$('#sync-disconnect').disabled=true;syncStatus('已断开。本机与云端学习记录均保留。');};
+$('#sync-disconnect').onclick=()=>{if(!Profiles.canSync)return;clearTimeout(syncTimer);syncAuth=null;try{localStorage.removeItem(SYNC_SECRET);sessionStorage.removeItem(SYNC_SECRET);}catch{}$('#sync-token').value='';$('#sync-now').disabled=true;$('#sync-disconnect').disabled=true;syncStatus('已断开。本机与云端学习记录均保留。');};
 $('#sync-auto').onchange=()=>{persistSyncConfig();if($('#sync-auto').checked)scheduleSync();else clearTimeout(syncTimer);};
 window.addEventListener('tingjian-change',scheduleSync);
-window.addEventListener('tingjian-ready',()=>{syncReady=true;try{
+window.addEventListener('tingjian-ready',()=>{syncReady=true;if(!Profiles.canSync){$('#sync-owner-panel').classList.add('hidden');$('#sync-local-note').classList.remove('hidden');return;}try{
   const config=JSON.parse(localStorage.getItem(SYNC_CONFIG)||'null');if(config){$('#sync-repo').value=config.repo||'';$('#sync-auto').checked=config.auto!==false;}
   const auth=JSON.parse(sessionStorage.getItem(SYNC_SECRET)||localStorage.getItem(SYNC_SECRET)||'null');
   if(auth&&/^[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(auth.repo)&&typeof auth.token==='string'&&auth.token.startsWith('github_pat_')){syncAuth=auth;$('#sync-repo').value=auth.repo;$('#sync-remember').checked=!!localStorage.getItem(SYNC_SECRET);$('#sync-now').disabled=false;$('#sync-disconnect').disabled=false;if($('#sync-auto').checked)runSync();else syncStatus('已绑定 · '+auth.repo);}
@@ -75,3 +76,5 @@ window.addEventListener('tingjian-ready',()=>{syncReady=true;try{
 function syncOnReturn(){if(document.visibilityState==='visible'&&$('#sync-auto').checked)runSync();}
 document.addEventListener('visibilitychange',syncOnReturn);window.addEventListener('online',syncOnReturn);
 setInterval(()=>{if(document.visibilityState==='visible'&&$('#sync-auto').checked)runSync();},120000);
+
+if(!Profiles.canSync){$('#sync-owner-panel').classList.add('hidden');$('#sync-local-note').classList.remove('hidden');}
