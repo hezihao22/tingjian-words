@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#244f47"><meta name="description" content="以听懂和看懂为目标的单词学习空间，支持电脑和手机。">
-  <title>听见单词 · 听懂，也看懂</title><link rel="stylesheet" href="./style.css">
+  <title>听见单词 · 听懂，也看懂</title><link rel="stylesheet" href="./style.css?v=3">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23244f47'/%3E%3Ctext x='5' y='28' fill='%23e6efc9' font-size='25' font-family='Georgia'%3EAa%3C/text%3E%3C/svg%3E">
-  <script src="./core.js" defer></script><script src="./app.js" defer></script>
+  <script src="./core.js?v=3" defer></script><script src="./sync-core.js?v=3" defer></script><script src="./app.js?v=3" defer></script><script src="./sync.js?v=3" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -17,7 +17,7 @@
       <button id="nav-review" class="nav-item"><span>↺</span>待复习的词<span class="nav-count" id="review-count">0</span></button>
     </nav>
     <div class="sidebar-book"><div class="sidebar-label">正在学习</div><div class="mini-cover">Aa<span>听见 · 词书</span></div><strong id="side-book">正在读取词书…</strong><p id="side-category"></p><button id="change-book" class="text-btn">换一本词书 ↗</button></div>
-    <div class="side-bottom"><span class="local-dot"></span>进度保存在当前设备<button id="settings-btn" class="text-btn">播放与数据设置 ⚙</button></div>
+    <div class="side-bottom"><span class="local-dot"></span>本机保存 · 可同步进度<button id="settings-btn" class="text-btn">播放与数据设置 ⚙</button></div>
   </aside>
   <div class="workspace">
     <header class="topbar"><span>让每一个词，变得熟悉。</span><span class="topbar-note">听懂 · 看懂 <button id="mobile-settings" class="avatar" aria-label="播放与数据设置">⚙</button></span></header>
@@ -30,16 +30,28 @@
     <div class="player-meta"><span id="player-position"></span><button id="player-stop" class="text-btn">结束播放 ×</button></div>
   </section>
   <dialog id="settings-dialog"><form method="dialog" class="dialog-top"><h2>播放与数据设置</h2><button aria-label="关闭设置" class="icon-btn">×</button></form>
-    <div class="settings-body"><label>朗读方式<select id="speech-engine"><option value="local">本机语音 · 可离线使用</option><option value="browser">浏览器语音</option></select></label>
-    <p class="muted" id="speech-help">正在检查语音环境…</p>
-    <div id="browser-voices" class="voice-settings hidden"><label>英文声音<select id="voice-en"></select></label><label>中文声音<select id="voice-zh"></select></label><p class="fineprint" id="voice-status"></p><button type="button" id="refresh-voices" class="text-btn">刷新可用声音</button></div>
+    <div class="settings-body"><div class="audio-note"><strong>内置中英文音频</strong><p class="muted">打开网页、点播放就能听，无需安装或设置手机语音包。首次播放需要联网，播放时请保持页面打开。</p></div>
     <label>朗读速度<select id="speech-rate"><option value="0.75">0.75 × · 慢一点</option><option value="0.9">0.9 × · 从容</option><option value="1">1 × · 正常</option><option value="1.15">1.15 × · 稍快</option></select></label>
     <label>词与词之间的停顿<select id="speech-gap"><option value="500">0.5 秒</option><option value="1200">1.2 秒</option><option value="2000">2 秒</option><option value="3000">3 秒</option></select></label>
     <div class="row"><button type="button" id="test-en" class="btn secondary">试听英文</button><button type="button" id="test-zh" class="btn secondary">试听中文</button></div>
-    <hr><h3>你的学习记录</h3><p class="muted">记录保存在当前浏览器中，包含听选结果、看词状态和你补充的释义。清理浏览器数据前，记得导出一份。</p>
+    <hr><h3>GitHub 同步进度</h3>
+    <p class="muted">将已听懂、已看懂、收藏、自定义释义和学习位置同步到自己的私有仓库。电脑与手机各绑定一次。</p>
+    <details class="sync-guide"><summary>首次使用：三步绑定</summary><ol>
+      <li>你的 <a href="https://github.com/hezihao22/tingjian-progress" target="_blank" rel="noreferrer">tingjian-progress 私有仓库 ↗</a>已创建，可直接使用。其他账号需新建独立私有仓库并添加 README。</li>
+      <li>打开 <a href="https://github.com/settings/personal-access-tokens/new?name=Tingjian-progress&amp;description=Sync%20my%20vocabulary%20progress&amp;target_name=hezihao22&amp;expires_in=90" target="_blank" rel="noreferrer">Fine-grained token 设置 ↗</a>，设置有效期，在 Only select repositories 中只选这个进度仓库，将 Repository permissions → Contents 设为 Read and write，然后生成。</li>
+      <li>将授权码粘贴在下方，点击“绑定并同步”。手机和电脑填写同一个仓库；可以各建一个授权码。</li>
+    </ol><p class="fineprint">不要把授权码发到聊天里。它只用于本网站直接访问 GitHub。若勾选“记住授权”，它会保存在此浏览器中；请仅在自己的设备上勾选。到期后需换新授权码。</p></details>
+    <label>进度仓库<input id="sync-repo" value="hezihao22/tingjian-progress" placeholder="用户名/私有仓库名" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+    <label>GitHub 授权码<input id="sync-token" type="password" placeholder="github_pat_…" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+    <label class="sync-check"><input id="sync-remember" type="checkbox">在此设备记住授权（仅本人设备）</label>
+    <label class="sync-check"><input id="sync-auto" type="checkbox" checked>学习后自动同步，打开页面时合并进度</label>
+    <div class="row sync-actions"><button type="button" id="sync-connect" class="btn primary">绑定并同步</button><button type="button" id="sync-now" class="btn secondary" disabled>立即同步</button><button type="button" id="sync-disconnect" class="text-btn" disabled>断开绑定</button></div>
+    <p id="sync-status" class="fineprint" role="status">尚未绑定，学习记录照常保存在本机。</p>
+    <p class="fineprint">自动同步会在操作停止约 20 秒后进行；换设备前可点“立即同步”。两端记录按每项最近修改时间合并，请保持设备时间准确。播放速度等偏好各设备独立保存。</p>
+    <hr><h3>你的学习记录</h3><p class="muted">记录始终先保存在当前浏览器。绑定后可同步到私有仓库；导出文件不包含 GitHub 授权码。清理浏览器数据前，建议导出一份。</p>
     <div class="row"><button type="button" id="export-data" class="btn secondary">导出学习记录</button><button type="button" id="import-data" class="btn secondary">恢复学习记录</button><input type="file" id="import-file" accept="application/json" hidden></div>
     <p class="fineprint">中文朗读默认取词库首个中文义项；它不一定是最高频用法。可以在单词表中修改。缺失释义的词会跳过中文朗读和听选。</p></div>
   </dialog>
-  <dialog id="meaning-dialog"><form id="meaning-form"><div class="dialog-top"><h2 id="meaning-title">修改主要释义</h2><button type="button" id="close-meaning" class="icon-btn" aria-label="关闭释义编辑">×</button></div><div class="settings-body"><p id="meaning-source" class="muted"></p><label>中文主要释义<input id="meaning-input" maxlength="80" required placeholder="只写一个最想记住的中文意思"></label><p class="fineprint">用于中文朗读和听选；原始释义仍会保留。</p><div class="row"><button class="btn primary" type="submit">保存释义</button><button class="btn secondary" type="button" id="reset-meaning">恢复词库释义</button></div></div></form></dialog>
+  <dialog id="meaning-dialog"><form id="meaning-form"><div class="dialog-top"><h2 id="meaning-title">修改主要释义</h2><button type="button" id="close-meaning" class="icon-btn" aria-label="关闭释义编辑">×</button></div><div class="settings-body"><p id="meaning-source" class="muted"></p><label>中文主要释义<input id="meaning-input" maxlength="80" required placeholder="只写一个最想记住的中文意思"></label><p class="fineprint">用于显示和听选；原始释义仍会保留。若新释义不在内置音频库中，播放时会跳过这条中文，不影响英文朗读。</p><div class="row"><button class="btn primary" type="submit">保存释义</button><button class="btn secondary" type="button" id="reset-meaning">恢复词库释义</button></div></div></form></dialog>
   <div id="toast" role="status" class="toast hidden"></div>
 </body></html>
