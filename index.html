@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#244f47"><meta name="description" content="以听懂和看懂为目标的单词学习空间，支持电脑和手机。">
+  <title>听见单词 · 听懂，也看懂</title><link rel="stylesheet" href="./style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23244f47'/%3E%3Ctext x='5' y='28' fill='%23e6efc9' font-size='25' font-family='Georgia'%3EAa%3C/text%3E%3C/svg%3E">
+  <script src="./core.js" defer></script><script src="./app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="./" aria-label="听见单词首页"><span class="brandmark">ııı</span><span>听见单词<small>WORDS, MADE FAMILIAR</small></span></a>
+    <div class="sidebar-label">我的学习空间</div>
+    <nav aria-label="主导航">
+      <button id="nav-study" class="nav-item active"><span>▤</span>单词学习</button>
+      <button id="nav-books" class="nav-item"><span>▦</span>挑选词书<span class="nav-count" id="book-count">…</span></button>
+      <button id="nav-review" class="nav-item"><span>↺</span>待复习的词<span class="nav-count" id="review-count">0</span></button>
+    </nav>
+    <div class="sidebar-book"><div class="sidebar-label">正在学习</div><div class="mini-cover">Aa<span>听见 · 词书</span></div><strong id="side-book">正在读取词书…</strong><p id="side-category"></p><button id="change-book" class="text-btn">换一本词书 ↗</button></div>
+    <div class="side-bottom"><span class="local-dot"></span>进度保存在当前设备<button id="settings-btn" class="text-btn">播放与数据设置 ⚙</button></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><span>让每一个词，变得熟悉。</span><span class="topbar-note">听懂 · 看懂 <button id="mobile-settings" class="avatar" aria-label="播放与数据设置">⚙</button></span></header>
+    <main id="main"><div class="loading">正在打开你的词库…</div></main>
+    <footer class="page-footer"><span>每天一小组，慢慢听得懂。</span><a href="https://github.com/LinXueyuanStdio/DictionaryData" target="_blank" rel="noreferrer">词库来源 · DictionaryData ↗</a></footer>
+  </div>
+  <section id="player" class="player hidden" aria-label="单词播放器">
+    <div class="player-word"><span class="sound-orb small">♫</span><div><strong id="playing-word">准备播放</strong><small id="playing-stage" aria-live="polite"></small></div></div>
+    <div class="player-controls"><button id="player-prev" aria-label="上一个词">Ⅰ◀</button><button id="player-toggle" class="play-circle" aria-label="暂停">Ⅱ</button><button id="player-next" aria-label="下一个词">▶Ⅰ</button></div>
+    <div class="player-meta"><span id="player-position"></span><button id="player-stop" class="text-btn">结束播放 ×</button></div>
+  </section>
+  <dialog id="settings-dialog"><form method="dialog" class="dialog-top"><h2>播放与数据设置</h2><button aria-label="关闭设置" class="icon-btn">×</button></form>
+    <div class="settings-body"><label>朗读方式<select id="speech-engine"><option value="local">本机语音 · 可离线使用</option><option value="browser">浏览器语音</option></select></label>
+    <p class="muted" id="speech-help">正在检查语音环境…</p>
+    <div id="browser-voices" class="voice-settings hidden"><label>英文声音<select id="voice-en"></select></label><label>中文声音<select id="voice-zh"></select></label><p class="fineprint" id="voice-status"></p><button type="button" id="refresh-voices" class="text-btn">刷新可用声音</button></div>
+    <label>朗读速度<select id="speech-rate"><option value="0.75">0.75 × · 慢一点</option><option value="0.9">0.9 × · 从容</option><option value="1">1 × · 正常</option><option value="1.15">1.15 × · 稍快</option></select></label>
+    <label>词与词之间的停顿<select id="speech-gap"><option value="500">0.5 秒</option><option value="1200">1.2 秒</option><option value="2000">2 秒</option><option value="3000">3 秒</option></select></label>
+    <div class="row"><button type="button" id="test-en" class="btn secondary">试听英文</button><button type="button" id="test-zh" class="btn secondary">试听中文</button></div>
+    <hr><h3>你的学习记录</h3><p class="muted">记录保存在当前浏览器中，包含听选结果、看词状态和你补充的释义。清理浏览器数据前，记得导出一份。</p>
+    <div class="row"><button type="button" id="export-data" class="btn secondary">导出学习记录</button><button type="button" id="import-data" class="btn secondary">恢复学习记录</button><input type="file" id="import-file" accept="application/json" hidden></div>
+    <p class="fineprint">中文朗读默认取词库首个中文义项；它不一定是最高频用法。可以在单词表中修改。缺失释义的词会跳过中文朗读和听选。</p></div>
+  </dialog>
+  <dialog id="meaning-dialog"><form id="meaning-form"><div class="dialog-top"><h2 id="meaning-title">修改主要释义</h2><button type="button" id="close-meaning" class="icon-btn" aria-label="关闭释义编辑">×</button></div><div class="settings-body"><p id="meaning-source" class="muted"></p><label>中文主要释义<input id="meaning-input" maxlength="80" required placeholder="只写一个最想记住的中文意思"></label><p class="fineprint">用于中文朗读和听选；原始释义仍会保留。</p><div class="row"><button class="btn primary" type="submit">保存释义</button><button class="btn secondary" type="button" id="reset-meaning">恢复词库释义</button></div></div></form></dialog>
+  <div id="toast" role="status" class="toast hidden"></div>
+</body></html>
