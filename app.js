@@ -21,7 +21,7 @@ const mastered=w=>record(w).read===true&&record(w).listen===true;
 const current=()=>view==='review'?groups[lesson]||[]:groups[lesson]||[];
 const shown=()=>current().filter(w=>!wordQuery||`${w.en} ${meaning(w)} ${w.full}`.toLowerCase().includes(wordQuery.toLowerCase()));
 const label=n=>String(n+1).padStart(2,'0');
-const categoryLabel=c=>c==='大学英语六级词汇'?'六级':c==='GRE词汇'?'GRE':'托福';
+const categoryLabel=c=>({'大学英语六级词汇':'六级','GRE词汇':'GRE','托福词汇':'托福','考研英语':'考研'}[c]||c);
 function updateRecord(w,patch){const r=record(w),now=Date.now(),at={...r._at};for(const k of ['read','listen','star']){if(typeof r[k]==='boolean'&&!at[k])at[k]=r.updated||0;if(k in patch)at[k]=now;}saved.records[w.id]={...r,...patch,_at:at,updated:now};save();updateSidebar();}
 function updateSidebar(){
   $('#book-count').textContent=catalog?.books.length||'…';
@@ -90,7 +90,7 @@ function renderPlay(){const n=current().filter(w=>!meaning(w)).length;$('#tab-co
   $('#begin-play').onclick=()=>startPlayback($('#shuffle-play').checked?WordCore.shuffle(current()):current(),{chinese:true,mode:'group',loop:$('#loop-play').checked});
 }
 function renderLibrary(){
-  $('#main').innerHTML=`<div class="hero"><div><div class="eyebrow">YOUR NEXT CHAPTER</div><h1>挑一本，开始听。</h1><p>六级、GRE、托福，找到适合你的词书。选中后自动分成每组 50 词。</p></div><span class="tag">${catalog.books.length} 本本地词书</span></div><div class="library-toolbar"><input type="search" id="book-search" placeholder="搜索词书名称、作者或出版社" aria-label="搜索词书" value="${esc(bookQuery)}"><select id="category-select" aria-label="词书类别"><option value="">全部类别</option>${catalog.categories.map(c=>`<option value="${c.id}" ${category===c.id?'selected':''}>${esc(categoryLabel(c.name))}</option>`).join('')}</select></div><div id="book-results"></div>`;
+  $('#main').innerHTML=`<div class="hero"><div><div class="eyebrow">YOUR NEXT CHAPTER</div><h1>挑一本，开始听。</h1><p>六级、考研、GRE、托福，找到适合你的词书。选中后自动分成每组 50 词。</p></div><span class="tag">${catalog.books.length} 本本地词书</span></div><div class="library-toolbar"><input type="search" id="book-search" placeholder="搜索词书名称、作者或出版社" aria-label="搜索词书" value="${esc(bookQuery)}"><select id="category-select" aria-label="词书类别"><option value="">全部类别</option>${catalog.categories.map(c=>`<option value="${c.id}" ${category===c.id?'selected':''}>${esc(categoryLabel(c.name))}</option>`).join('')}</select></div><div id="book-results"></div>`;
   $('#book-search').oninput=e=>{bookQuery=e.target.value;renderBooks();};$('#category-select').onchange=e=>{category=e.target.value;renderBooks();};renderBooks();
 }
 function renderBooks(){const found=catalog.books.filter(b=>(!category||b.categoryId===category)&&`${b.name} ${b.author} ${b.publisher}`.toLowerCase().includes(bookQuery.toLowerCase()));
@@ -119,7 +119,7 @@ let session=0,activeAudio=null,cancelSpeech=null,paused=false,playing=null;
 const abortError=()=>new DOMException('Cancelled','AbortError');
 function stopPlayback(){session++;paused=false;if(cancelSpeech){cancelSpeech();cancelSpeech=null;}if(activeAudio){activeAudio.pause();activeAudio=null;}playing=null;$('#player').classList.add('hidden');$$('tr.playing').forEach(r=>r.classList.remove('playing'));}
 async function gate(ticket,ms=0){let elapsed=0;while(ticket===session&&(paused||elapsed<ms)){const before=performance.now(),wasPaused=paused;await new Promise(r=>setTimeout(r,60));if(!paused&&!wasPaused)elapsed+=performance.now()-before;}if(ticket!==session)throw abortError();}
-async function loadAudioIndex(){if(audioIndex)return audioIndex;const r=await fetch('./data/audio/index.json');if(!r.ok)throw new Error('音频目录暂未加载，请联网后重试。');audioIndex=await r.json();return audioIndex;}
+async function loadAudioIndex(){if(audioIndex)return audioIndex;const r=await fetch('./data/audio/index.json?v=4');if(!r.ok)throw new Error('音频目录暂未加载，请联网后重试。');audioIndex=await r.json();return audioIndex;}
 async function speak(text,lang,ticket,onHeard){
   await gate(ticket);const index=await loadAudioIndex();await gate(ticket);
   const key=index[lang]?.[text];
@@ -185,6 +185,6 @@ window.addEventListener('beforeunload',stopPlayback);
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&playing&&!['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement.tagName)){e.preventDefault();$('#player-toggle').click();}});
 async function init(){try{
   saved.settings.engine='recorded';
-  const r=await fetch('./data/catalog.json');if(!r.ok)throw new Error();catalog=await r.json();const preferred=catalog.books.find(b=>b.name.includes('六级')&&b.name.includes('正序'))||catalog.books.find(b=>b.category==='大学英语六级词汇')||catalog.books[0];await openBook(catalog.books.some(b=>b.id===saved.book)?saved.book:preferred.id,false);window.dispatchEvent(new Event('tingjian-ready'));loadAudioIndex().catch(()=>{});if(!storageOK)toast('未能读取上次记录，已打开默认词书。');
+  const r=await fetch('./data/catalog.json?v=4');if(!r.ok)throw new Error();catalog=await r.json();const preferred=catalog.books.find(b=>b.name.includes('六级')&&b.name.includes('正序'))||catalog.books.find(b=>b.category==='大学英语六级词汇')||catalog.books[0];await openBook(catalog.books.some(b=>b.id===saved.book)?saved.book:preferred.id,false);window.dispatchEvent(new Event('tingjian-ready'));loadAudioIndex().catch(()=>{});if(!storageOK)toast('未能读取上次记录，已打开默认词书。');
 }catch{ $('#main').innerHTML='<div class="empty"><h2>暂时无法打开词库</h2><p>请检查网络后刷新。使用本地版本时，请先双击 start.bat。</p><button class="btn primary" id="retry-init">重新加载</button></div>';$('#retry-init').onclick=init;}}
 init();

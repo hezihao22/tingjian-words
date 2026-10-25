@@ -22,7 +22,8 @@
   function choose(a,at,b,bt){return bt>at||(bt===at&&JSON.stringify(b??null)>JSON.stringify(a??null))?[b,bt]:[a,at];}
   function merge(left,right){
     const a=clean(left),b=clean(right),out=clean(a);
-    [out.book,out.bookUpdated]=choose(a.book,a.bookUpdated,b.book,b.bookUpdated);
+    // A missing remote selection must not erase a default/legacy selection at time 0.
+    [out.book,out.bookUpdated]=!a.book?[b.book,b.bookUpdated]:!b.book?[a.book,a.bookUpdated]:choose(a.book,a.bookUpdated,b.book,b.bookUpdated);
     for(const id of new Set([...Object.keys(a.lessons),...Object.keys(b.lessons)])){
       if(!(id in b.lessons))continue;
       if(!(id in a.lessons)){out.lessons[id]=b.lessons[id];out.lessonUpdated[id]=b.lessonUpdated[id];continue;}
