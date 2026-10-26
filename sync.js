@@ -6,7 +6,7 @@ const syncStatus=text=>{$('#sync-status').textContent=text;};
 function encodeProgress(text){return btoa(Array.from(new TextEncoder().encode(text),c=>String.fromCharCode(c)).join(''));}
 function decodeProgress(text){return new TextDecoder('utf-8',{fatal:true}).decode(Uint8Array.from(atob(text.replace(/\s/g,'')),c=>c.charCodeAt(0)));}
 async function githubRequest(path,options={}){
-  const response=await fetch('https://api.github.com'+path,{...options,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:'Bearer '+syncAuth.token,...options.headers},cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});
+  const response=await fetch('https://api.github.com'+path,{...options,headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:'Bearer '+syncAuth.token,...options.headers},cache:'no-store',credentials:'omit',redirect:'error',signal:options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(20000)});
   if([401,403].includes(response.status))throw new Error('GitHub 授权不可用、已到期或额度暂时受限。请检查授权有效期和 Contents 读写权限。');
   return response;
 }
@@ -16,9 +16,10 @@ async function verifySyncRepo(){
   const repo=await response.json();
   if(!repo.private)throw new Error('请使用独立的私有仓库，学习记录不会写入公开仓库。');
   if(!repo.permissions?.push)throw new Error('当前授权没有写入此仓库的权限。');
+  PrivateLearning.authorize(repo);return repo;
 }
 async function runSync(){
-  if(!Profiles.canSync||!syncAuth||!syncReady)return;
+  if(!Auth.unlocked||!Profiles.canSync||!syncAuth||!syncReady)return;
   if(syncBusy){syncAgain=true;return;}
   syncBusy=true;$('#sync-now').disabled=true;$('#sync-connect').disabled=true;$('#sync-disconnect').disabled=true;
   clearTimeout(syncTimer);syncStatus('正在合并两端的学习记录…');
@@ -42,7 +43,7 @@ async function runSync(){
       const oldBook=saved.book,oldLesson=saved.lessons[saved.book];
       saved={...saved,...latest};save(false);
       updateSidebar();
-      if(!playing&&!quiz){
+      if(!playing&&!quiz&&!PrivateLearning.busy&&!['reading','interview','professional'].includes(view)){
         if(saved.book!==oldBook&&catalog.books.some(b=>b.id===saved.book))await openBook(saved.book,false);
         else if(view!=='books'){if(view==='study')lesson=saved.lessons[book.id]||0;rebuildGroups();render();}
       }
@@ -59,19 +60,19 @@ $('#sync-connect').onclick=async()=>{
   const repo=$('#sync-repo').value.trim(),token=$('#sync-token').value.trim();
   if(!/^[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(repo)){syncStatus('请填写“用户名/私有仓库名”。');return;}
   if(!token.startsWith('github_pat_')||token.length<30){syncStatus('请使用仅授权进度仓库的 Fine-grained token，不要填写 GitHub 密码。');return;}
-  syncAuth={repo,token};$('#sync-token').value='';
+  PrivateLearning.clear();syncAuth={repo,token};$('#sync-token').value='';
   // Session-only unless the person explicitly chooses to remember on this device.
   try{localStorage.removeItem(SYNC_SECRET);sessionStorage.removeItem(SYNC_SECRET);($('#sync-remember').checked?localStorage:sessionStorage).setItem(SYNC_SECRET,JSON.stringify(syncAuth));}catch{syncStatus('浏览器无法记住授权，本次打开期间仍可同步。');}
   persistSyncConfig();await runSync();
 };
 $('#sync-now').onclick=runSync;
-$('#sync-disconnect').onclick=()=>{if(!Profiles.canSync)return;clearTimeout(syncTimer);syncAuth=null;try{localStorage.removeItem(SYNC_SECRET);sessionStorage.removeItem(SYNC_SECRET);}catch{}$('#sync-token').value='';$('#sync-now').disabled=true;$('#sync-disconnect').disabled=true;syncStatus('已断开。本机与云端学习记录均保留。');};
+$('#sync-disconnect').onclick=()=>{if(!Profiles.canSync)return;clearTimeout(syncTimer);syncAuth=null;PrivateLearning.clear();if(['reading','interview','professional'].includes(view))changeView('study');try{localStorage.removeItem(SYNC_SECRET);sessionStorage.removeItem(SYNC_SECRET);}catch{}$('#sync-token').value='';$('#sync-now').disabled=true;$('#sync-disconnect').disabled=true;syncStatus('已断开。本机与云端学习记录均保留。');};
 $('#sync-auto').onchange=()=>{persistSyncConfig();if($('#sync-auto').checked)scheduleSync();else clearTimeout(syncTimer);};
 window.addEventListener('tingjian-change',scheduleSync);
 window.addEventListener('tingjian-ready',()=>{syncReady=true;if(!Profiles.canSync){$('#sync-owner-panel').classList.add('hidden');$('#sync-local-note').classList.remove('hidden');return;}try{
   const config=JSON.parse(localStorage.getItem(SYNC_CONFIG)||'null');if(config){$('#sync-repo').value=config.repo||'';$('#sync-auto').checked=config.auto!==false;}
   const auth=JSON.parse(sessionStorage.getItem(SYNC_SECRET)||localStorage.getItem(SYNC_SECRET)||'null');
-  if(auth&&/^[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(auth.repo)&&typeof auth.token==='string'&&auth.token.startsWith('github_pat_')){syncAuth=auth;$('#sync-repo').value=auth.repo;$('#sync-remember').checked=!!localStorage.getItem(SYNC_SECRET);$('#sync-now').disabled=false;$('#sync-disconnect').disabled=false;if($('#sync-auto').checked)runSync();else syncStatus('已绑定 · '+auth.repo);}
+  if(auth&&/^[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(auth.repo)&&typeof auth.token==='string'&&auth.token.startsWith('github_pat_')){syncAuth=auth;$('#sync-repo').value=auth.repo;$('#sync-remember').checked=!!localStorage.getItem(SYNC_SECRET);$('#sync-now').disabled=false;$('#sync-disconnect').disabled=false;if($('#sync-auto').checked)runSync();else{syncStatus('已绑定 · '+auth.repo);PrivateLearning.refreshAccess();}}
 }catch{syncStatus('未能读取同步设置，请重新绑定。');}});
 function syncOnReturn(){if(document.visibilityState==='visible'&&$('#sync-auto').checked)runSync();}
 document.addEventListener('visibilitychange',syncOnReturn);window.addEventListener('online',syncOnReturn);

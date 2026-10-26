@@ -10,8 +10,8 @@ const StreamAudio=(()=>{
     if(!response.ok)throw new Error('有音频未能加载，请检查网络后重试。');
     return response;
   }
-  function timing(){return timingPromise??=(checked('./data/audio/timing.json?v=7').then(r=>r.json()).catch(e=>{timingPromise=null;throw e;}));}
-  function silence(){return silencePromise??=(checked('./data/audio/silence.mp3?v=7').then(r=>r.arrayBuffer()).then(b=>new Uint8Array(b)).catch(e=>{silencePromise=null;throw e;}));}
+  function timing(){return timingPromise??=(checked('./data/audio/timing.json?v=8').then(r=>r.json()).catch(e=>{timingPromise=null;throw e;}));}
+  function silence(){return silencePromise??=(checked('./data/audio/silence.mp3?v=8').then(r=>r.arrayBuffer()).then(b=>new Uint8Array(b)).catch(e=>{silencePromise=null;throw e;}));}
   function cache(){return cachePromise??=Promise.resolve().then(()=>window.caches?.open('tingjian-recordings-v1')).catch(()=>null);}
   async function recording(key,signal){
     signal.throwIfAborted();

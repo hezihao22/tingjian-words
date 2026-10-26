@@ -3,7 +3,7 @@ const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KEY=Profiles.key;
-let audioIndex=null,audioIndexRequest=null;
+let audioIndex=null,audioIndexRequest=null,voiceOverrides=null,voiceRequest=null,neuralBookIndex=null;
 const mediaPlayer=new Audio();
 mediaPlayer.preload='auto';
 const defaults=()=>({version:1,book:null,bookUpdated:0,lessons:{},lessonUpdated:{},records:{},meanings:{},meaningUpdated:{},settings:{engine:'recorded',rate:.9,gap:1200,voiceEn:'',voiceZh:''}});
@@ -27,7 +27,7 @@ function updateSidebar(){
   $('#book-count').textContent=catalog?.books.length||'…';
   $('#review-count').textContent=words.filter(review).length;
   if(book){$('#side-book').textContent=book.name;$('#side-category').textContent=`${categoryLabel(book.category)} · ${book.count.toLocaleString()} 个词`;}
-  ['study','books','review'].forEach(v=>$('#nav-'+v).classList.toggle('active',view===v));
+  ['study','books','review','reading','interview'].forEach(v=>$('#nav-'+v).classList.toggle('active',(view===v||(v==='study'&&view==='professional'))));
 }
 function rebuildGroups(){groups=WordCore.chunks(view==='review'?words.filter(review):words);lesson=Math.max(0,Math.min(lesson,groups.length-1));}
 async function openBook(id,userAction=true){
@@ -35,21 +35,22 @@ async function openBook(id,userAction=true){
   stopPlayback();quiz=null;view='study';tab='table';wordQuery='';
   $('#main').innerHTML='<div class="loading">正在打开词书…</div>';
   try{
-    const r=await fetch('./data/books/'+encodeURIComponent(id)+'.json?v=7');if(!r.ok)throw new Error('词书读取失败');
+    const r=await fetch('./data/books/'+encodeURIComponent(id)+'.json?v=8');if(!r.ok)throw new Error('词书读取失败');
     const rows=await r.json();if(ticket!==bookRequest)return;
     words=rows.map(w=>({id:w[0],en:w[1],uk:w[2],us:w[3],full:w[4],main:w[5],source:w[6]||'DictionaryData'}));
     book=catalog.books.find(b=>b.id===id);if(userAction&&saved.book!==id)saved.bookUpdated=Date.now();saved.book=id;lesson=saved.lessons[id]||0;rebuildGroups();save();updateSidebar();render();StreamAudio.warm();
   }catch(error){if(ticket===bookRequest){$('#main').innerHTML='<div class="empty"><h2>暂时无法读取词书</h2><p>请检查网络或本地服务，然后重试。你的学习记录仍保留在当前设备。</p><button class="btn primary" id="retry-book">重新读取</button></div>';$('#retry-book').onclick=()=>openBook(id);}}
 }
-function changeView(next){bookRequest++;stopPlayback();quiz=null;view=next;tab='table';wordQuery='';lesson=next==='study'?(saved.lessons[book.id]||0):0;rebuildGroups();updateSidebar();render();}
+function changeView(next){bookRequest++;stopPlayback();quiz=null;if(['reading','interview','professional'].includes(next)){if(!PrivateLearning.authorized)return;view=next;updateSidebar();render();window.scrollTo(0,0);return;}if(next==='study'&&saved.book!==book?.id&&catalog.books.some(b=>b.id===saved.book)){openBook(saved.book,false);return;}view=next;tab='table';wordQuery='';lesson=next==='study'?(saved.lessons[book.id]||0):0;rebuildGroups();updateSidebar();render();}
 function setLesson(next){stopPlayback();quiz=null;lesson=Math.max(0,Math.min(groups.length-1,next));wordQuery='';if(view==='study'){saved.lessons[book.id]=lesson;saved.lessonUpdated??={};saved.lessonUpdated[book.id]=Date.now();save();}render();}
 function hero(){return `<div class="hero study-heading"><div><h1>${view==='review'?'待复习的词':'单词学习'}</h1>${view==='review'?'<p>当前词书中未听懂、未看懂或收藏的词</p>':''}</div><div class="hero-actions"><button class="btn secondary" id="quick-quiz">◉ 听音选义</button><button class="btn primary" id="quick-play">▶ 播放本组</button></div></div>`;}
-function banner(){const complete=words.filter(mastered).length;return `<section class="book-banner"><div class="book-info"><span class="book-label">词书</span><h2 title="${esc(book.name)}">${esc(book.name)}</h2><button id="inline-change-book" class="text-btn">换书 ↗</button></div><span class="book-progress" title="同时已听懂和已看懂的词数">已掌握 ${complete} / ${words.length.toLocaleString()} 词</span></section>`;}
+function banner(){const complete=words.filter(mastered).length;return `<section class="book-banner"><div class="book-info"><span class="book-label">词书</span><h2 title="${esc(book.name)}">${esc(book.name)}</h2>${book.id==='bd686fd640be98efaae0091f'?'<small class="voice-badge">自然语音</small>':''}<button id="inline-change-book" class="text-btn">换书 ↗</button></div><span class="book-progress" title="同时已听懂和已看懂的词数">已掌握 ${complete} / ${words.length.toLocaleString()} 词</span></section>`;}
 function lessonNav(){if(!groups.length)return '';return `<div class="lesson-header"><div class="group-picker"><button class="group-step" data-lesson="${lesson-1}" aria-label="上一组" ${lesson===0?'disabled':''}>‹</button><select id="lesson-select" aria-label="选择学习分组">${groups.map((g,i)=>`<option value="${i}" ${i===lesson?'selected':''}>第 ${label(i)} 组 · ${g.length} 词</option>`).join('')}</select><button class="group-step" data-lesson="${lesson+1}" aria-label="下一组" ${lesson>=groups.length-1?'disabled':''}>›</button></div><span class="group-range">${lesson*50+1}–${lesson*50+current().length} 词 <span> / 共 ${groups.length} 组</span></span></div>`;}
 function render(){
-  updateSidebar();if(view==='books'){renderLibrary();return;}
+  updateSidebar();if(['reading','interview','professional'].includes(view)){PrivateLearning.render(view);return;}if(view==='books'){renderLibrary();return;}
   if(!book)return;
-  $('#main').innerHTML=hero()+banner()+lessonNav()+(!groups.length?`<div class="empty"><h2>这本词书暂时没有待复习的词</h2><p>听选中没听懂的词会自动来到这里，也可以点单词旁的星号收藏。</p><button id="back-study" class="btn primary">返回学习</button></div>`:`<div class="tabs" role="tablist" aria-label="学习方式"><button role="tab" aria-selected="${tab==='table'}" class="tab ${tab==='table'?'active':''}" data-tab="table">单词表 <small>${current().length}</small></button><button role="tab" aria-selected="${tab==='play'}" class="tab ${tab==='play'?'active':''}" data-tab="play">随身听</button><button role="tab" aria-selected="${tab==='quiz'}" class="tab ${tab==='quiz'?'active':''}" data-tab="quiz">听音选义</button></div><section id="tab-content"></section>`);
+  $('#main').innerHTML=hero()+banner()+(PrivateLearning.authorized?'<div class="word-hub"><button id="word-professional" class="btn soft">专业词组 · 50 词</button><button id="word-review" class="text-btn">待复习的词</button><button id="word-books" class="text-btn">挑选词书</button></div>':'')+lessonNav()+(!groups.length?`<div class="empty"><h2>这本词书暂时没有待复习的词</h2><p>听选中没听懂的词会自动来到这里，也可以点单词旁的星号收藏。</p><button id="back-study" class="btn primary">返回学习</button></div>`:`<div class="tabs" role="tablist" aria-label="学习方式"><button role="tab" aria-selected="${tab==='table'}" class="tab ${tab==='table'?'active':''}" data-tab="table">单词表 <small>${current().length}</small></button><button role="tab" aria-selected="${tab==='play'}" class="tab ${tab==='play'?'active':''}" data-tab="play">随身听</button><button role="tab" aria-selected="${tab==='quiz'}" class="tab ${tab==='quiz'?'active':''}" data-tab="quiz">听音选义</button></div><section id="tab-content"></section>`);
+  if($('#word-professional')){$('#word-professional').onclick=()=>PrivateLearning.go('professional');$('#word-review').onclick=()=>changeView('review');$('#word-books').onclick=()=>changeView('books');}
   $('#quick-play').onclick=()=>startPlayback(current(),{chinese:true,mode:'group'});
   $('#quick-quiz').onclick=()=>{stopPlayback();tab='quiz';quiz=null;render();};
   $('#inline-change-book').onclick=()=>changeView('books');
@@ -117,9 +118,17 @@ function answerQuiz(choice){if(!quiz||quiz.answered||!quiz.heard)return;stopPlay
 // One audio owner for the whole app; cancellation invalidates every pending continuation.
 let session=0,activeAudio=null,cancelSpeech=null,paused=false,playing=null;
 const abortError=()=>new DOMException('Cancelled','AbortError');
-function stopPlayback(){session++;ListPlayer.stop();paused=false;if(cancelSpeech){cancelSpeech();cancelSpeech=null;}if(activeAudio){activeAudio.pause();activeAudio=null;}playing=null;$('#player').classList.add('hidden');$$('tr.playing').forEach(r=>r.classList.remove('playing'));}
+function stopPlayback(){session++;PrivateLearning.stop();ListPlayer.stop();paused=false;if(cancelSpeech){cancelSpeech();cancelSpeech=null;}if(activeAudio){activeAudio.pause();activeAudio=null;}playing=null;$('#player').classList.add('hidden');$$('tr.playing').forEach(r=>r.classList.remove('playing'));}
 async function gate(ticket,ms=0){let elapsed=0;while(ticket===session&&(paused||elapsed<ms)){const before=performance.now(),wasPaused=paused;await new Promise(r=>setTimeout(r,60));if(!paused&&!wasPaused)elapsed+=performance.now()-before;}if(ticket!==session)throw abortError();}
-async function loadAudioIndex(){if(audioIndex)return audioIndex;return audioIndexRequest??=(fetch('./data/audio/index.json?v=7').then(r=>{if(!r.ok)throw new Error('音频目录暂未加载，请联网后重试。');return r.json();}).then(data=>audioIndex=data).catch(error=>{audioIndexRequest=null;throw error;}));}
+async function loadAudioIndex(){
+  const selectedBook=book?.id;
+  if(!audioIndex)await (audioIndexRequest??=(fetch('./data/audio/index.json?v=8').then(r=>{if(!r.ok)throw new Error('音频目录暂未加载，请联网后重试。');return r.json();}).then(data=>audioIndex=data).catch(error=>{audioIndexRequest=null;throw error;})));
+  if(selectedBook!=='bd686fd640be98efaae0091f')return audioIndex;
+  if(!voiceOverrides)await (voiceRequest??=(fetch('./data/audio/voice-overrides.json?v=8').then(r=>{if(!r.ok)throw new Error('自然语音目录暂未加载，请联网后重试。');return r.json();}).then(data=>voiceOverrides=data).catch(error=>{voiceRequest=null;throw error;})));
+  const patch=voiceOverrides.books[selectedBook];
+  if(!patch)throw new Error('这本词书的自然语音尚未就绪。');
+  return neuralBookIndex??={...audioIndex,en:{...audioIndex.en,...patch.en},zh:{...audioIndex.zh,...patch.zh}};
+}
 async function speak(text,lang,ticket,onHeard){
   await gate(ticket);const index=await loadAudioIndex();await gate(ticket);
   const key=index[lang]?.[text];
@@ -166,6 +175,7 @@ function editMeaning(w){stopPlayback();editWord=w;$('#meaning-title').textConten
 $('#close-meaning').onclick=()=>$('#meaning-dialog').close();
 $('#meaning-form').onsubmit=e=>{e.preventDefault();const text=$('#meaning-input').value.trim();if(!/[\u4e00-\u9fff]/.test(text)){toast('请输入包含中文的简短释义。');return;}saved.meanings[editWord.id]=text;saved.meaningUpdated??={};saved.meaningUpdated[editWord.id]=Date.now();save();$('#meaning-dialog').close();renderRows();toast(audioIndex?.zh[text]?'已保存，显示、听选和中文朗读将使用这条释义。':'已保存，用于显示和听选。这条自定义释义尚无内置音频，播放时将跳过中文。');};
 $('#reset-meaning').onclick=()=>{delete saved.meanings[editWord.id];saved.meaningUpdated??={};saved.meaningUpdated[editWord.id]=Date.now();save();$('#meaning-dialog').close();renderRows();};
+$('#nav-reading').onclick=()=>PrivateLearning.go('reading');$('#nav-interview').onclick=()=>PrivateLearning.go('interview');
 $('#nav-study').onclick=()=>book&&changeView('study');$('#nav-books').onclick=()=>catalog&&changeView('books');$('#nav-review').onclick=()=>book&&changeView('review');$('#change-book').onclick=()=>changeView('books');
 $('#settings-btn').onclick=()=>{stopPlayback();$('#speech-rate').value=saved.settings.rate;$('#speech-gap').value=saved.settings.gap;$('#settings-dialog').showModal();};
 $('#mobile-settings').onclick=()=>$('#settings-btn').click();
@@ -184,8 +194,8 @@ function validateBackup(raw){
 $('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>10000000)throw new Error('记录文件过大。');const clean=validateBackup(JSON.parse(await file.text()));if(!confirm('恢复记录将替换当前用户的学习记录和自定义释义，不影响其他用户。确认恢复吗？'))return;stopPlayback();saved=clean;save();$('#settings-dialog').close();await openBook(saved.book||book.id);toast('学习记录已恢复。');}catch(error){toast('恢复失败：'+error.message);}finally{e.target.value='';}};
 window.addEventListener('beforeunload',stopPlayback);
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&playing&&!['INPUT','TEXTAREA','SELECT','BUTTON'].includes(document.activeElement.tagName)){e.preventDefault();$('#player-toggle').click();}});
-async function init(){try{
+async function init(){await Auth.requireLogin();try{
   saved.settings.engine='recorded';
-  const r=await fetch('./data/catalog.json?v=7');if(!r.ok)throw new Error();catalog=await r.json();const preferred=catalog.books.find(b=>b.name.includes('六级')&&b.name.includes('正序'))||catalog.books.find(b=>b.category==='大学英语六级词汇')||catalog.books[0];await openBook(catalog.books.some(b=>b.id===saved.book)?saved.book:preferred.id,false);window.dispatchEvent(new Event('tingjian-ready'));loadAudioIndex().catch(()=>{});if(!storageOK)toast('未能读取上次记录，已打开默认词书。');
+  const r=await fetch('./data/catalog.json?v=8');if(!r.ok)throw new Error();catalog=await r.json();const preferred=catalog.books.find(b=>b.name.includes('六级')&&b.name.includes('正序'))||catalog.books.find(b=>b.category==='大学英语六级词汇')||catalog.books[0];await openBook(catalog.books.some(b=>b.id===saved.book)?saved.book:preferred.id,false);window.dispatchEvent(new Event('tingjian-ready'));loadAudioIndex().catch(()=>{});if(!storageOK)toast('未能读取上次记录，已打开默认词书。');
 }catch{ $('#main').innerHTML='<div class="empty"><h2>暂时无法打开词库</h2><p>请检查网络后刷新。使用本地版本时，请先双击 start.bat。</p><button class="btn primary" id="retry-init">重新加载</button></div>';$('#retry-init').onclick=init;}}
 init();

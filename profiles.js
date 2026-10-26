@@ -18,10 +18,10 @@ const Profiles=(()=>{
     if(list().some(p=>p.id!==id&&p.name.toLocaleLowerCase()===name.toLocaleLowerCase()))throw new Error('本机已有这个用户名，请直接切换或换一个名字。');
     localStorage.setItem(prefix+id,JSON.stringify({id,name}));return id;
   };
-  const select=id=>{
+  const select=(id,keepLogin=false)=>{
     if(!list().some(p=>p.id===id))throw new Error('未找到这个用户，请刷新后重试。');
     // Each tab holds its own profile. Other tabs cannot change its save destination.
-    sessionStorage.setItem(selection,id);localStorage.setItem(selection,id);
+    if(!keepLogin)sessionStorage.removeItem('tingjian-login:'+id);sessionStorage.setItem(selection,id);localStorage.setItem(selection,id);
     location.reload();
   };
   return Object.freeze({id:active,key:active==='default'?'tingjian-v1':'tingjian-v1:'+active,
@@ -47,7 +47,7 @@ function showProfiles(){
 function refreshProfileName(){
   document.querySelector('#profile-button-name').textContent=Profiles.current().name;
   document.querySelector('#profile-btn').title='当前用户：'+Profiles.current().name+' · 切换用户';
-  document.querySelector('#data-profile-name').textContent=Profiles.current().name;
+  document.querySelector('#data-profile-name').textContent=Profiles.current().name;window.dispatchEvent(new Event('tingjian-profile-name'));
 }
 document.querySelector('#profile-btn').onclick=showProfiles;
 document.querySelector('#profile-rename').onsubmit=e=>{e.preventDefault();try{Profiles.rename(document.querySelector('#profile-name').value);refreshProfileName();showProfiles();document.querySelector('#profile-message').textContent='用户名已更新，原有进度和绑定均保留。';}catch(error){document.querySelector('#profile-message').textContent=error.message;}};

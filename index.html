@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#244f47"><meta name="description" content="以听懂和看懂为目标的单词学习空间，支持电脑和手机。">
-  <title>听见单词 · 听懂，也看懂</title><link rel="stylesheet" href="./style.css?v=7">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23244f47'/%3E%3Ctext x='5' y='28' fill='%23e6efc9' font-size='25' font-family='Georgia'%3EAa%3C/text%3E%3C/svg%3E">
-  <script src="./core.js?v=7" defer></script><script src="./sync-core.js?v=7" defer></script><script src="./profiles.js?v=7" defer></script><script src="./stream-audio.js?v=7" defer></script><script src="./list-player.js?v=7" defer></script><script src="./app.js?v=7" defer></script><script src="./sync.js?v=7" defer></script>
+  <title>听见单词 · 听懂，也看懂</title><link rel="stylesheet" href="./style.css?v=8">
+  <link rel="stylesheet" href="./practice.css?v=8"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23244f47'/%3E%3Ctext x='5' y='28' fill='%23e6efc9' font-size='25' font-family='Georgia'%3EAa%3C/text%3E%3C/svg%3E">
+  <script src="./core.js?v=8" defer></script><script src="./sync-core.js?v=8" defer></script><script src="./profiles.js?v=8" defer></script><script src="./auth.js?v=8" defer></script><script src="./private-learning.js?v=8" defer></script><script src="./stream-audio.js?v=8" defer></script><script src="./list-player.js?v=8" defer></script><script src="./app.js?v=8" defer></script><script src="./sync.js?v=8" defer></script>
 </head>
 <body>
   <aside class="sidebar">
     <a class="brand" href="./" aria-label="听见单词首页"><span class="brandmark">ııı</span><span>听见单词<small>WORDS, MADE FAMILIAR</small></span></a>
     <div class="sidebar-label">我的学习空间</div>
     <nav aria-label="主导航">
-      <button id="nav-study" class="nav-item active"><span>▤</span>单词学习</button>
+      <button id="nav-study" class="nav-item active"><span>▤</span>单词复习</button>
       <button id="nav-books" class="nav-item"><span>▦</span>挑选词书<span class="nav-count" id="book-count">…</span></button>
       <button id="nav-review" class="nav-item"><span>↺</span>待复习的词<span class="nav-count" id="review-count">0</span></button>
+      <button id="nav-reading" class="nav-item hidden"><span>♫</span>专业短听短读</button><button id="nav-interview" class="nav-item hidden"><span>◉</span>面试问答</button>
     </nav>
     <div class="sidebar-book"><div class="sidebar-label">正在学习</div><div class="mini-cover">Aa<span>听见 · 词书</span></div><strong id="side-book">正在读取词书…</strong><p id="side-category"></p><button id="change-book" class="text-btn">换一本词书 ↗</button></div>
     <div class="side-bottom"><span class="local-dot"></span>本机保存 · 可同步进度<button id="settings-btn" class="text-btn">播放与数据设置 ⚙</button></div>
@@ -30,6 +31,8 @@
     <div class="player-meta"><span id="player-position"></span><button id="player-stop" class="text-btn">结束播放 ×</button></div>
     <div id="player-seek-wrap" class="player-seek-wrap hidden"><span id="player-elapsed">0:00</span><input type="range" id="player-seek" min="0" max="1" step="0.1" value="0" aria-label="整组播放进度" disabled><span id="player-duration">0:00</span><small class="player-follow-row"><label><input type="checkbox" id="player-follow" checked> 跟随单词</label><span id="player-buffer-status">正在连接音频…</span></small></div>
   </section>
+  <section id="practice-player" class="practice-player hidden" aria-label="专属练习播放器"><div class="row"><strong id="practice-now">正在读取录音…</strong><button id="practice-close" class="text-btn">结束 ×</button></div><audio id="practice-audio" controls preload="metadata"></audio><div class="practice-player-options"><label><input type="checkbox" id="practice-loop"> 循环当前录音</label><label><input type="checkbox" id="practice-follow" checked> 跟随内容</label><label>速度 <select id="practice-rate" aria-label="专属练习语速"><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1" selected>1×</option><option value="1.1">1.1×</option></select></label></div><small id="practice-hint"></small></section>
+  <dialog id="login-dialog" class="login-dialog"><div class="login-card"><div class="eyebrow">听见单词</div><h2 id="login-heading">登录学习空间</h2><p id="login-note"></p><form id="login-form"><label>选择本机用户<select id="login-select"></select></label><label>用户名<input id="login-name" maxlength="20" required autocomplete="username"></label><label>密码<input id="login-password" type="password" minlength="6" maxlength="128" required autocomplete="current-password"></label><label id="login-confirm-wrap">再输入一次密码<input id="login-confirm" type="password" minlength="6" maxlength="128" autocomplete="new-password"></label><p id="login-error" role="alert"></p><button id="login-submit" class="btn primary">登录</button></form><details class="login-new"><summary>创建新的本机用户</summary><form id="login-new-form"><label>用户名<input id="login-new-name" maxlength="20" required autocomplete="username"></label><label>密码<input id="login-new-password" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>确认密码<input id="login-new-confirm" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><p id="login-new-error" role="alert"></p><button class="btn secondary">创建并登录</button></form></details><p class="fineprint">这是此浏览器的本机登录，密码不跨设备同步。原有记录不会清空；专属内容另外由私有 GitHub 仓库权限保护。</p></div></dialog>
   <dialog id="settings-dialog"><form method="dialog" class="dialog-top"><h2>播放与数据设置</h2><button aria-label="关闭设置" class="icon-btn">×</button></form>
     <div class="settings-body"><div class="audio-note"><strong>内置中英文音频</strong><p class="muted">打开网页、点播放就能听，无需安装或设置手机语音包。整组播放边听边加载，支持拖动进度和自动跟随当前单词；听过的录音会缓存在浏览器中。请保留浏览器标签页。</p></div>
     <details class="sync-guide"><summary>后台与息屏播放</summary><p>点“播放本组”，即可边加载边听；等播放器提示“本组已全部缓存”后，再返回桌面或息屏更稳妥。可尝试使用通知栏、锁屏或耳机的播放控制。</p><p>小米超级岛的显示取决于系统和浏览器支持，网站无法保证强制显示。若返回桌面后中断，请检查系统是否限制了浏览器后台运行；关闭标签页或清理浏览器进程会停止播放。</p></details>
@@ -55,12 +58,13 @@
     <p class="fineprint">中文朗读默认取词库首个中文义项；它不一定是最高频用法。可以在单词表中修改。缺失释义的词会跳过中文朗读和听选。</p></div>
   </dialog>
   <dialog id="profile-dialog"><form method="dialog" class="dialog-top"><h2>学习用户</h2><button class="icon-btn" aria-label="关闭用户设置">×</button></form>
-    <div class="settings-body"><p class="muted">每个用户分别保存词书、分组、学习进度和释义。切换时会停止播放。</p>
+    <div class="settings-body"><p class="muted">每个用户分别保存词书、分组、学习进度和释义。切换后需要密码登录。原有“我的学习”可直接改名为“何子豪”，保留原来的记录和绑定。</p><button id="profile-logout" class="btn secondary" type="button">退出本次登录</button>
     <div id="profile-list" class="profile-list"></div>
     <form id="profile-rename"><label>当前用户名<input id="profile-name" maxlength="20" required autocomplete="off"></label><button class="btn secondary" type="submit">保存用户名</button></form>
     <hr><form id="profile-create"><label>新增用户<input id="profile-new-name" maxlength="20" required placeholder="例如：小林" autocomplete="off"></label><button class="btn primary" type="submit">创建并切换</button></form>
+    <hr><form id="password-form"><h3>修改本机密码</h3><label>原密码<input id="password-old" type="password" required autocomplete="current-password"></label><label>新密码<input id="password-new" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><label>确认新密码<input id="password-confirm" type="password" minlength="6" maxlength="128" required autocomplete="new-password"></label><button class="btn secondary">修改密码</button><p id="password-message" role="status"></p></form>
     <p id="profile-message" class="fineprint" role="status"></p>
-    <p class="fineprint">用户名是此浏览器中的档案名称，无需注册，也不是密码登录。其他设备输入同名不会自动同步或取得你的授权。同一浏览器的使用者可以切换本机档案，公共设备请勿保存个人授权。</p></div>
+    <p class="fineprint">用户名与密码属于当前浏览器。其他设备输入同名不会自动取得你的记录或授权。只有原有“何子豪”档案绑定本人私有仓库后，才出现专属学习内容；公共设备请勿保存个人授权。</p></div>
   </dialog>
   <dialog id="meaning-dialog"><form id="meaning-form"><div class="dialog-top"><h2 id="meaning-title">修改主要释义</h2><button type="button" id="close-meaning" class="icon-btn" aria-label="关闭释义编辑">×</button></div><div class="settings-body"><p id="meaning-source" class="muted"></p><label>中文主要释义<input id="meaning-input" maxlength="80" required placeholder="只写一个最想记住的中文意思"></label><p class="fineprint">用于显示和听选；原始释义仍会保留。若新释义不在内置音频库中，播放时会跳过这条中文，不影响英文朗读。</p><div class="row"><button class="btn primary" type="submit">保存释义</button><button class="btn secondary" type="button" id="reset-meaning">恢复词库释义</button></div></div></form></dialog>
   <div id="toast" role="status" class="toast hidden"></div>
