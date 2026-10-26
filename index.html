@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#244f47"><meta name="description" content="以听懂和看懂为目标的单词学习空间，支持电脑和手机。">
-  <title>听见单词 · 听懂，也看懂</title><link rel="stylesheet" href="./style.css?v=6">
+  <title>听见单词 · 听懂，也看懂</title><link rel="stylesheet" href="./style.css?v=7">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23244f47'/%3E%3Ctext x='5' y='28' fill='%23e6efc9' font-size='25' font-family='Georgia'%3EAa%3C/text%3E%3C/svg%3E">
-  <script src="./core.js?v=6" defer></script><script src="./sync-core.js?v=6" defer></script><script src="./profiles.js?v=6" defer></script><script src="./list-player.js?v=6" defer></script><script src="./app.js?v=6" defer></script><script src="./sync.js?v=6" defer></script>
+  <script src="./core.js?v=7" defer></script><script src="./sync-core.js?v=7" defer></script><script src="./profiles.js?v=7" defer></script><script src="./stream-audio.js?v=7" defer></script><script src="./list-player.js?v=7" defer></script><script src="./app.js?v=7" defer></script><script src="./sync.js?v=7" defer></script>
 </head>
 <body>
   <aside class="sidebar">
@@ -28,11 +28,11 @@
     <div class="player-word"><span class="sound-orb small">♫</span><div><strong id="playing-word">准备播放</strong><small id="playing-stage" aria-live="polite"></small></div></div>
     <div class="player-controls"><button id="player-prev" aria-label="上一个词">Ⅰ◀</button><button id="player-toggle" class="play-circle" aria-label="暂停">Ⅱ</button><button id="player-next" aria-label="下一个词">▶Ⅰ</button></div>
     <div class="player-meta"><span id="player-position"></span><button id="player-stop" class="text-btn">结束播放 ×</button></div>
-    <div id="player-seek-wrap" class="player-seek-wrap hidden"><span id="player-elapsed">0:00</span><input type="range" id="player-seek" min="0" max="1" step="0.1" value="0" aria-label="整组播放进度" disabled><span id="player-duration">0:00</span><small>拖动可跳到任意位置 · 上一词 / 下一词</small></div>
+    <div id="player-seek-wrap" class="player-seek-wrap hidden"><span id="player-elapsed">0:00</span><input type="range" id="player-seek" min="0" max="1" step="0.1" value="0" aria-label="整组播放进度" disabled><span id="player-duration">0:00</span><small class="player-follow-row"><label><input type="checkbox" id="player-follow" checked> 跟随单词</label><span id="player-buffer-status">正在连接音频…</span></small></div>
   </section>
   <dialog id="settings-dialog"><form method="dialog" class="dialog-top"><h2>播放与数据设置</h2><button aria-label="关闭设置" class="icon-btn">×</button></form>
-    <div class="settings-body"><div class="audio-note"><strong>内置中英文音频</strong><p class="muted">打开网页、点播放就能听，无需安装或设置手机语音包。整组播放会先准备本 List 的音频，开始后可拖动进度；请保留浏览器标签页。</p></div>
-    <details class="sync-guide"><summary>后台与息屏播放</summary><p>点“播放本组”，等整组音频开始播放后，再返回桌面或息屏。可尝试使用通知栏、锁屏或耳机的播放控制。</p><p>小米超级岛的显示取决于系统和浏览器支持，网站无法保证强制显示。若返回桌面后中断，请检查系统是否限制了浏览器后台运行；关闭标签页或清理浏览器进程会停止播放。</p></details>
+    <div class="settings-body"><div class="audio-note"><strong>内置中英文音频</strong><p class="muted">打开网页、点播放就能听，无需安装或设置手机语音包。整组播放边听边加载，支持拖动进度和自动跟随当前单词；听过的录音会缓存在浏览器中。请保留浏览器标签页。</p></div>
+    <details class="sync-guide"><summary>后台与息屏播放</summary><p>点“播放本组”，即可边加载边听；等播放器提示“本组已全部缓存”后，再返回桌面或息屏更稳妥。可尝试使用通知栏、锁屏或耳机的播放控制。</p><p>小米超级岛的显示取决于系统和浏览器支持，网站无法保证强制显示。若返回桌面后中断，请检查系统是否限制了浏览器后台运行；关闭标签页或清理浏览器进程会停止播放。</p></details>
     <label>朗读速度<select id="speech-rate"><option value="0.75">0.75 × · 慢一点</option><option value="0.9">0.9 × · 从容</option><option value="1">1 × · 正常</option><option value="1.15">1.15 × · 稍快</option></select></label>
     <label>词与词之间的停顿<select id="speech-gap"><option value="500">0.5 秒</option><option value="1200">1.2 秒</option><option value="2000">2 秒</option><option value="3000">3 秒</option></select></label>
     <div class="row"><button type="button" id="test-en" class="btn secondary">试听英文</button><button type="button" id="test-zh" class="btn secondary">试听中文</button></div>

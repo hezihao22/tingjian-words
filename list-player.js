@@ -60,6 +60,16 @@ const ListPlayer=(()=>{
   let state=null,scrubbing=false;
   const actions=['play','pause','stop','seekto','seekbackward','seekforward','previoustrack','nexttrack'];
   const clock=n=>{n=Math.max(0,Math.floor(n||0));return Math.floor(n/60)+':'+String(n%60).padStart(2,'0');};
+  function follow(word,force=false){
+    if(!state||document.visibilityState!=='visible'||!$('#player-follow').checked)return;
+    const row=$(`[data-word="${state.list[word].id}"]`);
+    if(!row)return;
+    if(!force&&state.followedRow===row)return;
+    state.followedRow=row;
+    const box=row.getBoundingClientRect(),bottom=Math.min(innerHeight,$('#player').getBoundingClientRect().top)-12;
+    const top=70,center=(top+Math.max(top,bottom))/2;
+    window.scrollBy({top:box.top+box.height/2-center,behavior:force||matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  }
   function position(){
     if(!state?.track)return;
     try{navigator.mediaSession?.setPositionState({duration:state.track.duration,playbackRate:mediaPlayer.playbackRate,position:Math.min(state.track.duration,Math.max(0,mediaPlayer.currentTime))});}catch{}
@@ -82,7 +92,7 @@ const ListPlayer=(()=>{
     $('#player-seek').setAttribute('aria-valuetext',`${clock(time)}，第 ${s.word+1} 个词，${state.list[s.word].en}，${s.label}`);
     if(!preview)$('#player-seek').value=String(time);
     $('#player-prev').disabled=s.word===0;$('#player-next').disabled=s.word===state.list.length-1;
-    if(!preview){$$('tr.playing').forEach(r=>r.classList.remove('playing'));$(`[data-word="${state.list[s.word].id}"]`)?.classList.add('playing');}
+    if(!preview){$$('tr.playing').forEach(r=>r.classList.remove('playing'));$(`[data-word="${state.list[s.word].id}"]`)?.classList.add('playing');follow(s.word);}
   }
   function playbackState(){
     if(!state?.track)return;
@@ -97,7 +107,8 @@ const ListPlayer=(()=>{
   }
   function seek(time){
     if(!state?.track||!Number.isFinite(time))return;
-    scrubbing=false;mediaPlayer.currentTime=Math.max(0,Math.min(state.track.duration,time));render();
+    scrubbing=false;const target=Math.max(0,Math.min(state.track.duration,time)),word=ListAudio.at(state.track,target).word;
+    state.stream?.prioritize(word);mediaPlayer.currentTime=target;render();follow(word,true);
   }
   function seekWord(offset){
     if(!state?.track)return;const s=ListAudio.at(state.track,mediaPlayer.currentTime);
@@ -113,29 +124,40 @@ const ListPlayer=(()=>{
     for(const [name,handler]of old.events)mediaPlayer.removeEventListener(name,handler);
     mediaPlayer.pause();mediaPlayer.loop=false;mediaPlayer.removeAttribute('src');mediaPlayer.load();
     if(old.url)URL.revokeObjectURL(old.url);
+    document.body.classList.remove('list-following');
     $('#player-toggle').disabled=false;$('#player-seek-wrap').classList.add('hidden');
     try{if(navigator.mediaSession){navigator.mediaSession.metadata=null;navigator.mediaSession.playbackState='none';navigator.mediaSession.setPositionState?.();for(const action of actions)try{navigator.mediaSession.setActionHandler(action,null);}catch{}}}catch{}
   }
   async function start(list,options,ticket,startIndex){
-    const current={list:[...list],abort:new AbortController(),events:[],track:null,url:null,metadataWord:-1,title:(book?.name||'单词学习')+' · 第 '+(lesson+1)+' 组'};state=current;
+    const current={list:[...list],abort:new AbortController(),events:[],track:null,url:null,stream:null,metadataWord:-1,followedRow:null,title:(book?.name||'单词学习')+' · 第 '+(lesson+1)+' 组'};state=current;
     const alive=()=>state===current&&ticket===session;
+    document.body.classList.toggle('list-following',$('#player-follow').checked);
+    $('#player-buffer-status').textContent='正在连接音频…';
     $('#player-seek-wrap').classList.remove('hidden');$('#player-seek').disabled=true;$('#player-seek').value='0';
     $('#player-elapsed').textContent='准备中';$('#player-duration').textContent='整组音频';
     $('#player-toggle').disabled=true;$('#player-prev').disabled=true;$('#player-next').disabled=true;
-    $('#playing-word').textContent='正在准备整组音频';$('#playing-stage').textContent='准备完成后可拖动进度、切到后台播放';$('#player-position').textContent=list.length+' 词';
+    $('#playing-word').textContent='正在连接音频';$('#playing-stage').textContent='先播前面的词，同时加载后面的词';$('#player-position').textContent=list.length+' 词';
     try{
       const index=await loadAudioIndex();if(!alive())return;
-      const track=await ListAudio.build(list,index,{signal:current.abort.signal,gap:Number(saved.settings.gap),speed:Number(saved.settings.rate),meaning,onProgress:(n,total)=>{if(alive())$('#playing-stage').textContent=`正在准备音频 ${n} / ${total} · 完成后开始播放`;}});
-      if(!alive())return;current.track=track;current.url=URL.createObjectURL(track.blob);
+      const stream=StreamAudio.supported();
+      const settings={signal:current.abort.signal,gap:Number(saved.settings.gap),speed:Number(saved.settings.rate),meaning,onProgress:(n,total)=>{if(alive())$('#playing-stage').textContent=`正在准备音频 ${n} / ${total} · 完成后开始播放`;}};
+      const track=await (stream?StreamAudio.plan(list,index,settings):ListAudio.build(list,index,settings));
+      if(!alive())return;current.track=track;
+      const begin=()=>{
+        if(!alive())return;mediaPlayer.playbackRate=Number(saved.settings.rate);mediaPlayer.currentTime=track.starts[Math.max(0,Math.min(list.length-1,startIndex))]||0;
+        $('#player-toggle').disabled=false;$('#player-seek').disabled=false;$('#player-seek').max=String(track.duration);
+        controls();render();resume();
+      };
       const on=(event,handler)=>{mediaPlayer.addEventListener(event,handler);current.events.push([event,handler]);};
       on('timeupdate',()=>render());on('seeked',()=>render());on('play',playbackState);on('pause',playbackState);on('ratechange',position);
       on('ended',()=>{render(track.duration);playbackState();toast('本组播放完成。可拖动进度重听，或点 ▶ 再听一遍。');});
       on('error',()=>{if(alive()){stopPlayback();toast('整组音频播放失败，请重新点“播放本组”。');}});
-      on('loadedmetadata',()=>{
-        if(!alive())return;mediaPlayer.playbackRate=Number(saved.settings.rate);mediaPlayer.currentTime=track.starts[Math.max(0,Math.min(list.length-1,startIndex))]||0;
-        $('#player-toggle').disabled=false;$('#player-seek').disabled=false;$('#player-seek').max=String(track.duration);
-        controls();render();resume();
-      });
+      on('waiting',()=>{if(alive()&&!mediaPlayer.paused)$('#playing-stage').textContent='正在缓冲这一段…';});
+      if(stream){
+        current.stream=await StreamAudio.connect(track,{signal:current.abort.signal,startIndex,onReady:begin,onProgress:(n,total)=>{if(alive())$('#player-buffer-status').textContent=n===total?'本组已全部缓存 · 可安心切到后台':'已缓存 '+n+' / '+total+' 词 · 正在继续加载';},onError:error=>{if(alive()){stopPlayback();toast(error.name==='TimeoutError'?'网络较慢，请重新播放；已缓存的录音会保留。':error.message);}}});
+        current.url=current.stream.url;
+      }else{current.url=URL.createObjectURL(track.blob);on('loadedmetadata',begin);$('#player-buffer-status').textContent='本组音频已准备完成';}
+      if(!alive()){if(current.url)URL.revokeObjectURL(current.url);return;}
       activeAudio=mediaPlayer;mediaPlayer.loop=!!options.loop;mediaPlayer.src=current.url;mediaPlayer.playbackRate=Number(saved.settings.rate);mediaPlayer.load();
       if(track.skipped)toast(`${track.skipped} 条中文暂无内置音频，已保留英文播放。`);
     }catch(error){if(alive()){stopPlayback();toast(error.name==='AbortError'||error.name==='TimeoutError'?'音频准备超时，请联网后重试。':error instanceof TypeError?'音频准备失败，请检查网络后重试。':error.message);}}
@@ -143,6 +165,7 @@ const ListPlayer=(()=>{
   $('#player-seek').oninput=e=>{if(state?.track){scrubbing=true;render(Number(e.target.value),true);}};
   $('#player-seek').onchange=e=>seek(Number(e.target.value));
   $('#player-seek').onblur=()=>{if(scrubbing){scrubbing=false;render();}};
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){render();playbackState();}});
+  $('#player-follow').onchange=()=>{document.body.classList.toggle('list-following',!!state&&$('#player-follow').checked);if(state?.track)follow(ListAudio.at(state.track,mediaPlayer.currentTime).word,true);};
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(state)state.followedRow=null;render();playbackState();}});
   return {start,stop,seekWord,seek,get active(){return !!state;},get track(){return state?.track;},toggle:()=>{if(state?.track){if(mediaPlayer.paused)resume();else mediaPlayer.pause();}}};
 })();
