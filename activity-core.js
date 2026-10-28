@@ -44,7 +44,9 @@
       out.wordMs+=entry.wordMs||0;out.exampleMs+=entry.exampleMs||0;
       for(const [id,w]of Object.entries(entry.words||{})){
         const row=out.words[id]??={...w,times:0,repeats:0,exampleMs:0};
-        row.times+=w.times||0;row.repeats+=w.repeats||0;row.exampleMs+=w.exampleMs||0;
+        // Stored repeats remains the legacy raw English clip counter for safe old-client merges.
+        // Displayed learning rounds use word visits: one automatic triple is one round.
+        row.times+=w.times||0;row.repeats+=w.times||0;row.exampleMs+=w.exampleMs||0;
       }
     }
     for(const w of Object.values(out.words)){out.times+=w.times;out.repeats+=w.repeats;if(w.repeats>0)out.count++;}

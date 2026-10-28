@@ -76,7 +76,7 @@ const Activity=(()=>{
   function details(){
     const s=ActivityCore.summary(saved.activity,selected);
     $('#activity-day-title').textContent=selected+' · 学习明细';
-    $('#activity-metrics').innerHTML=[['不同单词',s.count+' 词'],['单词学习',s.times+' 次'],['英文听读',s.repeats+' 遍'],['听音时长',duration(s.totalMs)]].map(([name,value])=>`<div><strong>${value}</strong><span>${name}</span></div>`).join('');
+    $('#activity-metrics').innerHTML=[['不同单词',s.count+' 词'],['单词学习',s.times+' 次'],['学习遍数',s.repeats+' 遍'],['听音时长',duration(s.totalMs)]].map(([name,value])=>`<div><strong>${value}</strong><span>${name}</span></div>`).join('');
     $('#activity-breakdown').textContent=`单词播放 ${duration(s.wordMs)} ＋ 例句 ${duration(s.exampleMs)}`;
     const rows=Object.values(s.words).sort((a,b)=>b.repeats-a.repeats||a.en.localeCompare(b.en));
     $('#activity-words').innerHTML=rows.length?`<table class="activity-word-table"><thead><tr><th>当天的词表</th><th>次数</th><th>遍数</th></tr></thead><tbody>${rows.map(w=>`<tr><td><strong>${safe(w.en)}</strong><p>${safe(w.zh)}</p><small>${safe(w.book)}${w.exampleMs?' · 例句 '+duration(w.exampleMs):''}${!w.repeats?' · 只听了例句':''}</small></td><td>${w.times}</td><td>${w.repeats}</td></tr>`).join('')}</tbody></table>`:'<p class="activity-empty">这一天暂无完整听读的单词或例句记录。开始听一个词，让今天多一点绿色。</p>';
