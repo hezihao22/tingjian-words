@@ -13,7 +13,7 @@ try { const raw=JSON.parse(localStorage.getItem(KEY)||'null'); if(raw?.version==
 let catalog,book,words=[],groups=[],lesson=0,view='study',tab='table',wordQuery='',hideMeaning=false,quiz=null,bookQuery='',category='',editWord=null;
 let bookRequest=0, toastTimer, searchOpen=false;
 function toast(message){$('#toast').textContent=message;$('#toast').classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.add('hidden'),6500);}
-function save(notify=true){try{localStorage.setItem(KEY,JSON.stringify(saved));if(notify)window.dispatchEvent(new Event('tingjian-change'));}catch{toast('浏览器无法保存记录，请使用设置中的“导出学习记录”备份。');}}
+function save(notify=true){try{const stored=JSON.parse(localStorage.getItem(KEY)||'{}');saved.activity=ActivityCore.merge(saved.activity,stored.activity);localStorage.setItem(KEY,JSON.stringify(saved));if(notify)window.dispatchEvent(new Event('tingjian-change'));}catch{toast('浏览器无法保存记录，请使用设置中的“导出学习记录”备份。');}}
 const record=w=>saved.records[w.id]||{};
 const meaning=w=>saved.meanings[w.id]??w.main;
 const review=w=>{const r=record(w);return !!r.star||r.listen===false||r.read===false;};
@@ -129,25 +129,26 @@ async function loadAudioIndex(){
   if(!patch)throw new Error('这本词书的自然语音尚未就绪。');
   return neuralBookIndex??={...audioIndex,en:{...audioIndex.en,...patch.en},zh:{...audioIndex.zh,...patch.zh}};
 }
-async function speak(text,lang,ticket,onHeard){
+async function speak(text,lang,ticket,onHeard,study=null){
   await gate(ticket);const index=await loadAudioIndex();await gate(ticket);
   const key=index[lang]?.[text];
   if(!key)throw new Error('这条自定义内容还没有内置音频。词库原有释义可直接播放。');
   return new Promise((resolve,reject)=>{
     const a=mediaPlayer;activeAudio=a;let finished=false,timer;
-    const finish=error=>{if(finished)return;finished=true;clearTimeout(timer);a.onended=null;a.onerror=null;a.onplaying=null;a.onwaiting=null;if(activeAudio===a)activeAudio=null;cancelSpeech=null;error?reject(error):resolve();};
+    const finish=error=>{if(finished)return;finished=true;Activity.detach(a);clearTimeout(timer);a.onended=null;a.onerror=null;a.onplaying=null;a.onwaiting=null;if(activeAudio===a)activeAudio=null;cancelSpeech=null;error?reject(error):resolve();};
     cancelSpeech=()=>{a.pause();finish(abortError());};
     a.onended=()=>finish();a.onerror=()=>finish(new Error('音频加载失败，请检查网络后重试。'));
     a.onplaying=()=>{clearTimeout(timer);if(paused)a.pause();else onHeard?.();};
     a.onwaiting=()=>{clearTimeout(timer);timer=setTimeout(()=>{if(!paused){a.pause();finish(new Error('音频加载超时，请检查网络后重试。'));}},30000);};
     a.src='./data/audio/'+key.slice(0,2)+'/'+key+'.mp3';a.playbackRate=Number(saved.settings.rate);
+    if(study)Activity.attach(a,{kind:'word',word:lang==='en'?study.word:null,visits:study.visits});
     timer=setTimeout(()=>{a.pause();finish(new Error('音频加载超时，请联网后重试。'));},30000);
     a.play().then(()=>{if(ticket!==session){a.pause();finish(abortError());return;}if(paused)a.pause();}).catch(()=>finish(new Error('请再次点击播放按钮，让浏览器允许声音播放。')));
   });
 }
 async function startPlayback(list,options={},start=0){
   stopPlayback();if(!list.length){toast('当前没有可播放的词。');return;}
-  const ticket=session;let skipped=0;playing={list:[...list],options,index:start};$('#player').classList.remove('hidden');$('#player-toggle').textContent='Ⅱ';$('#player-toggle').setAttribute('aria-label','暂停');
+  const ticket=session;let skipped=0;const studyVisits=new Set();playing={list:[...list],options,index:start};$('#player').classList.remove('hidden');$('#player-toggle').textContent='Ⅱ';$('#player-toggle').setAttribute('aria-label','暂停');
   $('#player-prev').disabled=list.length<2;$('#player-next').disabled=list.length<2;
   if(options.mode==='group'){await ListPlayer.start(list,options,ticket,start);return;}
   try{
@@ -158,7 +159,7 @@ async function startPlayback(list,options={},start=0){
         $('#player-position').textContent=`${i+1} / ${list.length} 词`;
         $$('tr.playing').forEach(r=>r.classList.remove('playing'));$(`[data-word="${w.id}"]`)?.classList.add('playing');
         const seq=WordCore.sequence(w,meaning(w),options.chinese!==false);
-        for(const part of seq){await gate(ticket);if(part.lang==='zh'&&!(await loadAudioIndex()).zh[part.text]){skipped++;$('#playing-stage').textContent='自定义释义暂无音频，已跳过中文';continue;}$('#playing-stage').textContent=part.label;await speak(part.text,part.lang,ticket,options.onHeard);await gate(ticket,280);}
+        for(const part of seq){await gate(ticket);if(part.lang==='zh'&&!(await loadAudioIndex()).zh[part.text]){skipped++;$('#playing-stage').textContent='自定义释义暂无音频，已跳过中文';continue;}$('#playing-stage').textContent=part.label;await speak(part.text,part.lang,ticket,options.onHeard,/^[a-f0-9]{24}$/.test(w.id)?{word:{...w,zh:meaning(w),book:book.name},visits:studyVisits}:null);await gate(ticket,280);}
         if(options.chinese!==false&&!meaning(w))$('#playing-stage').textContent='缺少释义，已跳过中文';
         await gate(ticket,Number(saved.settings.gap));
       }
@@ -183,7 +184,7 @@ for(const [id,key]of [['speech-rate','rate'],['speech-gap','gap']])$('#'+id).onc
 $('#test-en').onclick=()=>startPlayback([{id:'test-en',en:'Hello. A little listening, every day.',main:''}],{chinese:false,mode:'single'});
 $('#test-zh').onclick=async()=>{stopPlayback();const ticket=session;try{await speak('每天一小组，慢慢听得懂。','zh',ticket);toast('中文试听完成。');}catch(e){if(e.name!=='AbortError')toast(e.message);}};
 $('#settings-dialog').addEventListener('close',stopPlayback);
-$('#export-data').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(saved,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='听见单词-'+Profiles.current().name.replace(/[\\/:*?"<>|]/g,'_')+'-学习记录-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),500);};
+$('#export-data').onclick=()=>{Activity.flush();const url=URL.createObjectURL(new Blob([JSON.stringify(saved,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='听见单词-'+Profiles.current().name.replace(/[\\/:*?"<>|]/g,'_')+'-学习记录-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),500);};
 $('#import-data').onclick=()=>$('#import-file').click();
 function validateBackup(raw){
   const clean={...defaults(),...ProgressCore.clean(raw)};

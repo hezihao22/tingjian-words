@@ -108,7 +108,7 @@ const ListPlayer=(()=>{
   function seek(time){
     if(!state?.track||!Number.isFinite(time))return;
     scrubbing=false;const target=Math.max(0,Math.min(state.track.duration,time)),word=ListAudio.at(state.track,target).word;
-    state.stream?.prioritize(word);mediaPlayer.currentTime=target;render();follow(word,true);
+    state.stream?.prioritize(word);Activity.beforeSeek(mediaPlayer);mediaPlayer.currentTime=target;render();follow(word,true);
   }
   function seekWord(offset){
     if(!state?.track)return;const s=ListAudio.at(state.track,mediaPlayer.currentTime);
@@ -120,7 +120,7 @@ const ListPlayer=(()=>{
     for(const [action,handler]of Object.entries(handlers))try{navigator.mediaSession.setActionHandler(action,handler);}catch{}
   }
   function stop(){
-    if(!state)return;const old=state;state=null;scrubbing=false;old.abort.abort();
+    if(!state)return;Activity.detach(mediaPlayer);const old=state;state=null;scrubbing=false;old.abort.abort();
     for(const [name,handler]of old.events)mediaPlayer.removeEventListener(name,handler);
     mediaPlayer.pause();mediaPlayer.loop=false;mediaPlayer.removeAttribute('src');mediaPlayer.load();
     if(old.url)URL.revokeObjectURL(old.url);
@@ -158,7 +158,7 @@ const ListPlayer=(()=>{
         current.url=current.stream.url;
       }else{current.url=URL.createObjectURL(track.blob);on('loadedmetadata',begin);$('#player-buffer-status').textContent='本组音频已准备完成';}
       if(!alive()){if(current.url)URL.revokeObjectURL(current.url);return;}
-      activeAudio=mediaPlayer;mediaPlayer.loop=!!options.loop;mediaPlayer.src=current.url;mediaPlayer.playbackRate=Number(saved.settings.rate);mediaPlayer.load();
+      activeAudio=mediaPlayer;mediaPlayer.loop=!!options.loop;mediaPlayer.src=current.url;Activity.attach(mediaPlayer,{segments:track.segments.filter(s=>s.label.startsWith('英文')).map(s=>({start:s.start,end:s.end,visit:s.word,word:{...list[s.word],zh:meaning(list[s.word]),book:book.name}}))});mediaPlayer.playbackRate=Number(saved.settings.rate);mediaPlayer.load();
       if(track.skipped)toast(`${track.skipped} 条中文暂无内置音频，已保留英文播放。`);
     }catch(error){if(alive()){stopPlayback();toast(error.name==='AbortError'||error.name==='TimeoutError'?'音频准备超时，请联网后重试。':error instanceof TypeError?'音频准备失败，请检查网络后重试。':error.message);}}
   }

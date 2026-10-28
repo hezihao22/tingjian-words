@@ -1,5 +1,6 @@
 (function(root){
   'use strict';
+  const ActivityCore=typeof module!=='undefined'?require('./activity-core.js'):root.ActivityCore;
   const safeId=id=>/^[a-f0-9]{24}$/.test(id);
   const stamp=v=>Number.isSafeInteger(v)&&v>=0&&v<=Date.now()+86400000?v:0;
   function clean(raw){
@@ -15,7 +16,7 @@
     }
     for(const [id,value]of Object.entries(raw.meanings||{}))if(safeId(id)&&typeof value==='string'&&value.length<=80&&/[\u4e00-\u9fff]/.test(value))out.meanings[id]=value;
     for(const id of new Set([...Object.keys(out.meanings),...Object.keys(raw.meaningUpdated||{})]))if(safeId(id))out.meaningUpdated[id]=stamp(raw.meaningUpdated?.[id]);
-    return out;
+    out.activity=ActivityCore.clean(raw.activity);return out;
   }
   // Per-field timestamps preserve changes made on different devices. Equal timestamps
   // have a deterministic tie-breaker, including explicit false and meaning resets.
@@ -42,7 +43,7 @@
       if(!(id in b.meaningUpdated))continue;
       const [value,time]=!(id in a.meaningUpdated)?[b.meanings[id],b.meaningUpdated[id]]:choose(a.meanings[id],a.meaningUpdated[id],b.meanings[id],b.meaningUpdated[id]);
       out.meaningUpdated[id]=time;if(value===undefined)delete out.meanings[id];else out.meanings[id]=value;
-    }return out;
+    }out.activity=ActivityCore.merge(a.activity,b.activity);return out;
   }
   function canonical(value){if(Array.isArray(value))return value.map(canonical);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])]));return value;}
   const stringify=value=>JSON.stringify(canonical(clean(value)));

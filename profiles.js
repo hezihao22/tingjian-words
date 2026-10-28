@@ -42,11 +42,11 @@ function showProfiles(){
     button.onclick=()=>{try{Profiles.select(p.id);}catch{document.querySelector('#profile-message').textContent='无法切换，请允许浏览器保存网站数据。';}};
     container.append(button);
   }
-  document.querySelector('#profile-dialog').showModal();
+  document.querySelector('#profile-dialog').showModal();Activity.open();
 }
 function refreshProfileName(){
   document.querySelector('#profile-button-name').textContent=Profiles.current().name;
-  document.querySelector('#profile-btn').title='当前用户：'+Profiles.current().name+' · 切换用户';
+  document.querySelector('#profile-btn').title='当前用户：'+Profiles.current().name+' · 每日学习与用户管理';
   document.querySelector('#data-profile-name').textContent=Profiles.current().name;window.dispatchEvent(new Event('tingjian-profile-name'));
 }
 document.querySelector('#profile-btn').onclick=showProfiles;

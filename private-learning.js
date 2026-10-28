@@ -18,7 +18,7 @@ const PrivateLearning=(()=>{
   }
   function stop(){
     const owned=!!playContext||!$('#practice-player').classList.contains('hidden');
-    playTicket++;audio?.pause();audio?.removeAttribute('src');audio?.load();playContext=null;followed=null;
+    Activity.detach(audio);playTicket++;audio?.pause();audio?.removeAttribute('src');audio?.load();playContext=null;followed=null;
     $('#practice-player')?.classList.add('hidden');$$('.practice-current').forEach(e=>e.classList.remove('practice-current'));
     stopRecording();$('#record-replay')?.pause();
     try{if(owned&&navigator.mediaSession){navigator.mediaSession.metadata=null;navigator.mediaSession.playbackState='none';navigator.mediaSession.setPositionState?.();for(const a of ['play','pause','stop','seekto','seekbackward','seekforward','previoustrack','nexttrack'])try{navigator.mediaSession.setActionHandler(a,null);}catch{}}}catch{}
@@ -91,7 +91,7 @@ const PrivateLearning=(()=>{
     try{
       if(!navigator.mediaSession)return;
       navigator.mediaSession.metadata=new MediaMetadata({title,artist:'听见单词 · 专属英语练习',artwork:[{src:new URL('./media-cover.png',location.href).href,sizes:'512x512',type:'image/png'}]});
-      const seek=seconds=>{audio.currentTime=Math.max(0,Math.min(audio.duration||0,seconds));followed=null;updateAudio();};
+      const seek=seconds=>{Activity.beforeSeek(audio);audio.currentTime=Math.max(0,Math.min(audio.duration||0,seconds));followed=null;updateAudio();};
       const handlers={play:()=>audio.play().catch(()=>toast('请点播放器继续播放。')),pause:()=>audio.pause(),stop:()=>stop(),seekto:e=>seek(e.seekTime),seekbackward:e=>seek(audio.currentTime-(e.seekOffset||10)),seekforward:e=>seek(audio.currentTime+(e.seekOffset||10)),previoustrack:()=>seek(playContext?.starts?.[Math.max(0,currentPart()-1)]||0),nexttrack:()=>seek(playContext?.starts?.[Math.min((playContext?.starts?.length||1)-1,currentPart()+1)]||0)};
       for(const [name,handler]of Object.entries(handlers))try{navigator.mediaSession.setActionHandler(name,handler);}catch{}
     }catch{}
@@ -103,6 +103,7 @@ const PrivateLearning=(()=>{
       const url=await fileURL(name);if(ticket!==playTicket||current!==epoch)return;
       playContext={title,...options};audio.src=url;audio.loop=$('#practice-loop').checked;audio.playbackRate=Number($('#practice-rate').value);
       audio.onloadedmetadata=()=>{if(ticket===playTicket){if(options.start)audio.currentTime=options.start;updateAudio();}};
+      if(options.activity){const a=options.activity;Activity.attach(audio,{kind:a.kind||'word',word:a.word||null,segments:a.segments||[]});}
       mediaControls(title);await audio.play();if(ticket!==playTicket)return;
       $('#practice-now').textContent=title;$('#practice-hint').textContent='神经网络合成语音 · 可拖动、循环、调速';updateAudio();
     }catch(error){if(ticket===playTicket){$('#practice-hint').textContent=error.name==='AbortError'?'播放已取消':error.message||'读取失败，请重试。';}}
@@ -126,13 +127,14 @@ const PrivateLearning=(()=>{
       if(kind==='reading')renderExercises(lesson);else{$('#record-start').onclick=startRecording;$('#record-stop').onclick=()=>stopRecording();$('#record-replay').onplay=()=>audio.pause();}
     }catch(error){if(current!==epoch||view!==next)return;$('#main').innerHTML=`<div class="empty"><h2>暂时无法打开专属内容</h2><p>${escape(error.message)}</p><button id="private-retry" class="btn primary">重新读取</button></div>`;$('#private-retry').onclick=()=>renderPage(next);}
   }
+  function termSegments(w,offset,visit){const gap=Math.round(.3/(576/24000))*(576/24000),length=(w.duration-2*gap)/3;return [0,1,2].map(i=>({start:offset+i*(length+gap),end:offset+i*(length+gap)+length,visit,word:{...w,book:'专业词组'}}));}
   function renderWords(){
     $('#main').innerHTML=`<section class="practice-heading"><div class="eyebrow">PUBLIC ADMINISTRATION · POLICY</div><h1>专业词组</h1><p>50 个常用词组，把专业释义放回句子里听。</p></section><div class="practice-actions"><button id="professional-all" class="btn primary">▶ 听本组 · EN ×3 + 中 ×1</button><button id="professional-back" class="btn secondary">返回原词书</button><label><input id="professional-review" type="checkbox"> 只看待复习</label></div><section id="term-list">${wordRows(pack.words)}</section>`;
-    $('#professional-all').onclick=()=>{if($('#professional-review').checked){$('#professional-review').checked=false;$('#term-list').innerHTML=wordRows(pack.words);bind();}play(pack.wordAudio.audio,'专业词组 · 50 词',{starts:pack.wordAudio.starts,elements:pack.words.map(w=>'#term-'+w.id),labels:pack.words.map((w,i)=>(i+1)+' / 50 · '+w.en)});};
+    $('#professional-all').onclick=()=>{if($('#professional-review').checked){$('#professional-review').checked=false;$('#term-list').innerHTML=wordRows(pack.words);bind();}play(pack.wordAudio.audio,'专业词组 · 50 词',{activity:{segments:pack.words.flatMap((w,i)=>termSegments(w,pack.wordAudio.starts[i],i))},starts:pack.wordAudio.starts,elements:pack.words.map(w=>'#term-'+w.id),labels:pack.words.map((w,i)=>(i+1)+' / 50 · '+w.en)});};
     $('#professional-back').onclick=()=>changeView('study');
     const bind=()=>{
-      $$('[data-word-audio]').forEach(b=>b.onclick=()=>{const w=pack.words.find(w=>w.id===b.dataset.wordAudio);play(w.audio,w.en+' · 英文三遍',{starts:[0],elements:['#term-'+w.id]});});
-      $$('[data-example-audio]').forEach(b=>b.onclick=()=>{const w=pack.words.find(w=>w.id===b.dataset.exampleAudio);play(w.exampleAudio,w.en+' · 例句',{starts:[0],elements:['#term-'+w.id]});});
+      $$('[data-word-audio]').forEach(b=>b.onclick=()=>{const w=pack.words.find(w=>w.id===b.dataset.wordAudio);play(w.audio,w.en+' · 英文三遍',{activity:{segments:termSegments(w,0,0)},starts:[0],elements:['#term-'+w.id]});});
+      $$('[data-example-audio]').forEach(b=>b.onclick=()=>{const w=pack.words.find(w=>w.id===b.dataset.exampleAudio);play(w.exampleAudio,w.en+' · 例句',{activity:{kind:'example',word:{...w,book:'专业词组'}},starts:[0],elements:['#term-'+w.id]});});
       $$('[data-term-known]').forEach(b=>b.onclick=()=>{mark(b.dataset.termKnown,'listen');b.textContent=record({id:b.dataset.termKnown}).listen?'✓ 已听懂':'标记听懂';b.classList.toggle('known',!!record({id:b.dataset.termKnown}).listen);});
       $$('[data-term-star]').forEach(b=>b.onclick=()=>{mark(b.dataset.termStar,'star');b.textContent=record({id:b.dataset.termStar}).star?'★ 已收藏':'☆ 加入复习';});
     };bind();$('#professional-review').onchange=e=>{stopPlayback();$('#term-list').innerHTML=wordRows(e.target.checked?pack.words.filter(w=>record(w).listen!==true||record(w).star):pack.words);bind();};

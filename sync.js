@@ -21,7 +21,7 @@ async function verifySyncRepo(){
 async function runSync(){
   if(!Auth.unlocked||!Profiles.canSync||!syncAuth||!syncReady)return;
   if(syncBusy){syncAgain=true;return;}
-  syncBusy=true;$('#sync-now').disabled=true;$('#sync-connect').disabled=true;$('#sync-disconnect').disabled=true;
+  Activity.flush();syncBusy=true;$('#sync-now').disabled=true;$('#sync-connect').disabled=true;$('#sync-disconnect').disabled=true;
   clearTimeout(syncTimer);syncStatus('正在合并两端的学习记录…');
   try{
     await verifySyncRepo();
@@ -41,7 +41,7 @@ async function runSync(){
       const latest=ProgressCore.merge(saved,merged);
       if(ProgressCore.stringify(latest)!==payload)syncAgain=true;
       const oldBook=saved.book,oldLesson=saved.lessons[saved.book];
-      saved={...saved,...latest};save(false);
+      saved={...saved,...latest};save(false);Activity.refresh();
       updateSidebar();
       if(!playing&&!quiz&&!PrivateLearning.busy&&!['reading','interview','professional'].includes(view)){
         if(saved.book!==oldBook&&catalog.books.some(b=>b.id===saved.book))await openBook(saved.book,false);
