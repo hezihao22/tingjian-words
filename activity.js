@@ -54,7 +54,7 @@ const Activity=(()=>{
     let html='',months='';
     for(let col=0;col<weeks;col++){
       const d=new Date(start);d.setDate(start.getDate()+col*7);const monthDay=new Date(d);monthDay.setDate(d.getDate()+6);
-      months+=`<span>${col===0||monthDay.getMonth()!==new Date(d.getFullYear(),d.getMonth(),d.getDate()-1).getMonth()?monthDay.getMonth()+1+'月':''}</span>`;
+      months+=`<span>${monthDay.getFullYear()===year&&(col===0||monthDay.getMonth()!==new Date(d.getFullYear(),d.getMonth(),d.getDate()-1).getMonth())?monthDay.getMonth()+1+'月':''}</span>`;
       for(let row=0;row<7;row++){
         const cell=new Date(d);cell.setDate(d.getDate()+row);const day=ActivityCore.dayKey(cell);
         if(cell.getFullYear()!==year){html+='<span class="heat-spacer"></span>';continue;}
